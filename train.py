@@ -55,6 +55,9 @@ class ChessTrainer:
         self.config = config
         self.dry_run = dry_run
 
+        # Set random seed for reproducibility
+        self.set_seed()
+
         # Setup device and GPU optimizer
         self.setup_device()
 
@@ -72,6 +75,25 @@ class ChessTrainer:
         self.checkpoint_manager = None
 
         logger.info(f"Initialized trainer (DRY_RUN={dry_run})")
+
+    def set_seed(self):
+        """Set random seed for reproducibility"""
+        seed = self.config.get('advanced', {}).get('seed')
+        if seed is not None:
+            import random
+            import numpy as np
+
+            random.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+
+            # Make cudnn deterministic if requested
+            if self.config.get('advanced', {}).get('deterministic', False):
+                torch.backends.cudnn.deterministic = True
+                torch.backends.cudnn.benchmark = False
+
+            logger.info(f"Random seed set to: {seed}")
 
     def setup_device(self):
         """Setup device and GPU-specific optimizations"""
@@ -139,6 +161,16 @@ class ChessTrainer:
         param_count = model.count_parameters()
         logger.info(f"Model created with {param_count:,} parameters")
 
+        # Compile model if enabled
+        if self.config.get('gpu', {}).get('enable_compile', False) and not self.dry_run:
+            compile_mode = self.config.get('gpu', {}).get('compile_mode', 'default')
+            logger.info(f"Compiling model with mode: {compile_mode}")
+            try:
+                model = torch.compile(model, mode=compile_mode)
+                logger.info("Model compiled successfully")
+            except Exception as e:
+                logger.warning(f"Model compilation failed: {e}")
+
         return model
 
     def create_optimizer(self, model: nn.Module):
@@ -181,10 +213,14 @@ class ChessTrainer:
 
         # Get PGN paths
         pgn_dir = Path(data_config.get('pgn_directory', 'data/pgn'))
+
+        # Create directory if it doesn't exist
+        pgn_dir.mkdir(parents=True, exist_ok=True)
+
         pgn_paths = list(pgn_dir.glob('*.pgn'))
 
         if not pgn_paths:
-            raise ValueError(f"No PGN files found in {pgn_dir}")
+            raise ValueError(f"No PGN files found in {pgn_dir}. Please add .pgn files to this directory.")
 
         logger.info(f"Found {len(pgn_paths)} PGN files")
 
@@ -209,6 +245,13 @@ class ChessTrainer:
         dataloader_config = {'num_workers': 4, 'pin_memory': True}
         if self.gpu_optimizer is not None:
             dataloader_config = self.gpu_optimizer.get_dataloader_config()
+
+        # Override with advanced settings if provided
+        advanced_config = self.config.get('advanced', {})
+        if advanced_config.get('num_workers') is not None:
+            dataloader_config['num_workers'] = advanced_config['num_workers']
+        if advanced_config.get('pin_memory') is not None:
+            dataloader_config['pin_memory'] = advanced_config['pin_memory']
 
         # In dry run, use simpler settings
         if self.dry_run:
@@ -323,6 +366,11 @@ class ChessTrainer:
         logger.info("=" * 80)
         logger.info("Starting Training")
         logger.info("=" * 80)
+
+        # Enable anomaly detection if requested
+        if self.config.get('advanced', {}).get('detect_anomaly', False):
+            torch.autograd.set_detect_anomaly(True)
+            logger.info("Anomaly detection enabled")
 
         # Create model
         logger.info("Creating model...")

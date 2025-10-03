@@ -212,13 +212,33 @@ class PGNDataset(IterableDataset):
         self.shuffle = shuffle
         self.max_games = max_games
 
-        # Detect format from first file
-        if pgn_paths:
-            self.tag_mapping = PGNFormatDetector.detect_format(pgn_paths[0])
-        else:
-            self.tag_mapping = {}
+        # Get tag mapping from config or detect
+        config_mapping = data_config.get('tag_mapping', {})
+        auto_detect = data_config.get('auto_detection', {}).get('enabled', True)
 
-        logger.info(f"Detected PGN tag mapping: {self.tag_mapping}")
+        if config_mapping and not auto_detect:
+            # Use config mapping
+            self.tag_mapping = config_mapping
+            logger.info("Using tag mapping from configuration")
+        elif pgn_paths and auto_detect:
+            # Auto-detect from first file
+            self.tag_mapping = PGNFormatDetector.detect_format(pgn_paths[0])
+            logger.info(f"Auto-detected PGN tag mapping: {self.tag_mapping}")
+        elif config_mapping:
+            # Fallback to config
+            self.tag_mapping = config_mapping
+            logger.info("Using tag mapping from configuration")
+        else:
+            # Use defaults
+            self.tag_mapping = {
+                'white_elo': 'WhiteElo',
+                'black_elo': 'BlackElo',
+                'result': 'Result',
+                'time_control': 'TimeControl',
+                'event': 'Event',
+                'date': 'Date',
+            }
+            logger.info("Using default tag mapping")
 
     def _parse_game(self, game: chess.pgn.Game) -> Optional[List[Dict]]:
         """Parse a single game into training samples"""

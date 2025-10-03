@@ -4,6 +4,14 @@ Advanced, state-of-the-art chess model training system with GPU-specific optimiz
 
 ## Features
 
+### 🌐 Web Interface
+- **Beautiful Dashboard**: Manage training through your browser
+- **Real-Time Monitoring**: Live metrics, logs, and progress bars
+- **Easy Configuration**: All settings via GUI
+- **Job Management**: Create, monitor, and control multiple training jobs
+- **Auto Dry-Run**: Validates setup before full training
+
+### 🚀 Training System
 - **State-of-the-Art Architecture**: Advanced Transformer with RoPE, SwiGLU, RMSNorm
 - **GPU-Specific Optimizations**: Auto-detects and optimizes for A100, H100, H200, V100, P100, RTX 5090
 - **OOM Prevention**: Intelligent memory management prevents out-of-memory errors
@@ -24,14 +32,38 @@ The system automatically detects your GPU and applies optimized settings:
 
 ## Quick Start
 
-### 1. Installation
+### Option 1: Web Interface (Recommended for Beginners) 🌐
+
+The easiest way to get started - manage everything through your browser!
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Start web server
+./start_web_ui.sh
+
+# 3. Open browser to http://localhost:5000
+
+# 4. Use the GUI to:
+#    - Create new training jobs
+#    - Configure all settings
+#    - Monitor training in real-time
+#    - View logs and metrics
+```
+
+See [WEB_UI_GUIDE.md](WEB_UI_GUIDE.md) for detailed instructions.
+
+### Option 2: Command Line (Advanced Users) 💻
+
+#### 1. Installation
 
 ```bash
 # Install dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Prepare Data
+#### 2. Prepare Data
 
 Place your PGN files in `data/pgn/`:
 
@@ -40,7 +72,7 @@ mkdir -p data/pgn
 # Copy your .pgn files to data/pgn/
 ```
 
-### 3. Configure Training
+#### 3. Configure Training
 
 Edit `settings.yaml` to configure your training:
 
@@ -57,7 +89,7 @@ data:
 
 Edit `data_settings_format.yaml` to configure PGN parsing (or use auto-detection).
 
-### 4. Dry Run (Recommended)
+#### 4. Dry Run (Recommended)
 
 Test your setup with a quick dry run:
 
@@ -73,7 +105,7 @@ This will:
 - Run a few training steps
 - Verify everything works
 
-### 5. Full Training
+#### 5. Full Training
 
 Start full training:
 

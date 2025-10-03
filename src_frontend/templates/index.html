@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess SL Training - Dashboard</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark navbar-expand-lg">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-lightning-charge-fill"></i>
+                Chess SL Training Dashboard
+            </a>
+            <div class="navbar-text text-white">
+                <span id="gpu-info">Loading GPU info...</span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-2">
+                <div class="list-group">
+                    <a href="#" class="list-group-item list-group-item-action active" data-page="new-training">
+                        <i class="bi bi-plus-circle"></i> New Training
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action" data-page="active-training">
+                        <i class="bi bi-play-circle"></i> Active Training
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action" data-page="all-jobs">
+                        <i class="bi bi-list-ul"></i> All Jobs
+                    </a>
+                    <a href="#" class="list-group-item list-group-item-action" data-page="system">
+                        <i class="bi bi-cpu"></i> System Stats
+                    </a>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-10">
+                <!-- New Training Page -->
+                <div id="new-training" class="content-page">
+                    <h2><i class="bi bi-plus-circle"></i> Create New Training</h2>
+                    <hr>
+
+                    <form id="new-training-form">
+                        <!-- Basic Info -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="mb-0">Basic Information</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Model Name</label>
+                                    <input type="text" class="form-control" id="model-name" required>
+                                    <div class="form-text">Choose a unique name for your model</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Data Path</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="data-path" placeholder="/root/datas/pgns/" required>
+                                        <button class="btn btn-outline-secondary" type="button" id="check-data-btn">
+                                            <i class="bi bi-check-circle"></i> Check
+                                        </button>
+                                    </div>
+                                    <div class="form-text">Path to directory containing .pgn files</div>
+                                    <div id="data-path-status" class="mt-2"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Model Configuration -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="mb-0">Model Architecture</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Dimension</label>
+                                        <select class="form-select" id="model-dim">
+                                            <option value="256">256 (Small)</option>
+                                            <option value="512" selected>512 (Medium)</option>
+                                            <option value="768">768 (Large)</option>
+                                            <option value="1024">1024 (XLarge)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Depth (Layers)</label>
+                                        <select class="form-select" id="model-depth">
+                                            <option value="6">6 (Small)</option>
+                                            <option value="12" selected>12 (Medium)</option>
+                                            <option value="18">18 (Large)</option>
+                                            <option value="24">24 (XLarge)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label class="form-label">Attention Heads</label>
+                                        <select class="form-select" id="model-heads">
+                                            <option value="4">4</option>
+                                            <option value="8" selected>8</option>
+                                            <option value="12">12</option>
+                                            <option value="16">16</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Dropout</label>
+                                    <input type="number" class="form-control" id="model-dropout" value="0.1" min="0" max="0.5" step="0.05">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Training Configuration -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-success text-white">
+                                <h5 class="mb-0">Training Configuration</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Total Steps</label>
+                                        <input type="number" class="form-control" id="train-steps" value="100000">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Batch Size</label>
+                                        <input type="number" class="form-control" id="train-batch" value="64">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Learning Rate</label>
+                                        <input type="number" class="form-control" id="train-lr" value="0.0003" step="0.0001">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Warmup Steps</label>
+                                        <input type="number" class="form-control" id="train-warmup" value="2000">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Data Configuration -->
+                        <div class="card mb-3">
+                            <div class="card-header bg-warning">
+                                <h5 class="mb-0">Data Filters</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Minimum ELO</label>
+                                        <input type="number" class="form-control" id="data-min-elo" value="2000">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Maximum ELO (leave empty for no limit)</label>
+                                        <input type="number" class="form-control" id="data-max-elo" placeholder="No limit">
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Min Moves</label>
+                                        <input type="number" class="form-control" id="data-min-moves" value="10">
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">Max Moves</label>
+                                        <input type="number" class="form-control" id="data-max-moves" value="300">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-rocket"></i> Create Training Job
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Active Training Page -->
+                <div id="active-training" class="content-page" style="display:none;">
+                    <h2><i class="bi bi-play-circle"></i> Currently Training Models</h2>
+                    <hr>
+
+                    <div id="active-jobs-container">
+                        <div class="text-center text-muted">
+                            <i class="bi bi-hourglass-split" style="font-size: 3rem;"></i>
+                            <p>No active training jobs</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- All Jobs Page -->
+                <div id="all-jobs" class="content-page" style="display:none;">
+                    <h2><i class="bi bi-list-ul"></i> All Training Jobs</h2>
+                    <hr>
+
+                    <div id="all-jobs-container">
+                        <!-- Jobs will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- System Stats Page -->
+                <div id="system" class="content-page" style="display:none;">
+                    <h2><i class="bi bi-cpu"></i> System Statistics</h2>
+                    <hr>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-header">CPU & Memory</div>
+                                <div class="card-body">
+                                    <canvas id="cpu-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card">
+                                <div class="card-header">GPU Memory</div>
+                                <div class="card-body">
+                                    <canvas id="gpu-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Job Detail Modal -->
+    <div class="modal fade" id="jobDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="jobDetailTitle">Job Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="jobDetailContent">
+                        <!-- Job details will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

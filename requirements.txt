@@ -11,6 +11,10 @@ python-chess>=1.999
 # Training utilities
 psutil>=5.9.0
 
+# Web interface
+flask>=2.3.0
+flask-cors>=4.0.0
+
 # Optional but recommended
 # tensorboard>=2.14.0  # For training visualization
 # wandb>=0.15.0        # For experiment tracking
