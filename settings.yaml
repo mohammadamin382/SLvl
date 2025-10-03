@@ -1,0 +1,137 @@
+# Chess Supervised Learning - Main Configuration
+# All training parameters and hyperparameters
+
+# Model Architecture Configuration
+model:
+  # Embedding dimension (must be divisible by num_heads)
+  dim: 512
+
+  # Number of transformer layers
+  depth: 12
+
+  # Number of attention heads
+  num_heads: 8
+
+  # Dropout rate for regularization
+  dropout: 0.1
+
+# Optimizer Configuration
+optimizer:
+  # Learning rate (will use warmup + cosine decay)
+  learning_rate: 3.0e-4
+
+  # Weight decay for AdamW
+  weight_decay: 0.01
+
+  # Beta parameters for AdamW
+  beta1: 0.9
+  beta2: 0.95
+
+  # Epsilon for numerical stability
+  eps: 1.0e-8
+
+# Training Configuration
+training:
+  # Total training steps
+  total_steps: 100000
+
+  # Warmup steps for learning rate
+  warmup_steps: 2000
+
+  # Minimum learning rate (for cosine decay)
+  min_lr: 1.0e-6
+
+  # Gradient accumulation steps (effective batch = batch_size * accumulation)
+  gradient_accumulation_steps: 4
+
+  # Maximum gradient norm for clipping
+  max_grad_norm: 1.0
+
+  # Loss weights
+  policy_weight: 1.0  # Weight for policy (move prediction) loss
+  value_weight: 0.5   # Weight for value (position evaluation) loss
+
+  # Use Exponential Moving Average of model weights
+  use_ema: true
+
+  # Logging and checkpointing
+  log_interval: 100          # Log metrics every N steps
+  checkpoint_interval: 5000  # Save checkpoint every N steps
+  keep_checkpoints: 5        # Number of checkpoints to keep
+
+# Data Configuration
+data:
+  # Directory containing PGN files
+  pgn_directory: "data/pgn"
+
+  # Batch size (will be adjusted based on GPU capacity)
+  batch_size: 64
+
+  # Maximum number of games to process (null = all games)
+  max_games: null
+
+  # ELO filtering
+  min_elo: 2000  # Minimum player ELO (null = no minimum)
+  max_elo: null  # Maximum player ELO (null = no maximum)
+
+  # Game length filtering
+  min_moves: 10   # Minimum number of moves in game
+  max_moves: 300  # Maximum number of moves in game
+
+  # Result filtering (null = all results)
+  # Options: ['1-0', '0-1', '1/2-1/2']
+  result_filter: ['1-0', '0-1', '1/2-1/2']  # Exclude unfinished games
+
+  # Time control filter (null = all time controls)
+  # Example: "blitz", "rapid", "classical"
+  time_control_filter: null
+
+# GPU Configuration (auto-detected, these are overrides)
+gpu:
+  # Force specific GPU type (null = auto-detect)
+  # Options: 'A100', 'H100', 'H200', 'V100', 'P100', 'RTX5090', 'GENERIC'
+  force_gpu_type: null
+
+  # Memory management overrides
+  max_split_size_mb: null  # null = use GPU-specific default
+  garbage_collection_threshold: null  # null = use GPU-specific default
+
+  # Enable torch.compile (experimental, may not work on all systems)
+  enable_compile: false
+
+  # Compile mode (if enabled): 'default', 'reduce-overhead', 'max-autotune'
+  compile_mode: 'max-autotune'
+
+# Paths Configuration
+paths:
+  # Directory for checkpoints
+  checkpoint_dir: "checkpoints"
+
+  # Directory for logs and metrics
+  log_dir: "logs"
+
+  # Directory for TensorBoard logs (if using)
+  tensorboard_dir: "runs"
+
+# Advanced Settings
+advanced:
+  # Seed for reproducibility (null = random)
+  seed: 42
+
+  # Number of workers for data loading (null = auto from GPU config)
+  num_workers: null
+
+  # Pin memory for faster GPU transfer
+  pin_memory: true
+
+  # Non-blocking transfers
+  non_blocking: true
+
+  # Enable anomaly detection (for debugging)
+  detect_anomaly: false
+
+  # Enable profiling
+  enable_profiling: false
+
+  # Profile steps (if profiling enabled)
+  profile_steps: [100, 200, 300]

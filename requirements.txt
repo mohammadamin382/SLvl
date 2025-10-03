@@ -1,0 +1,21 @@
+# Chess Supervised Learning - Requirements
+
+# Core dependencies
+torch>=2.1.0
+numpy>=1.24.0
+pyyaml>=6.0
+
+# Chess library
+python-chess>=1.999
+
+# Training utilities
+psutil>=5.9.0
+
+# Optional but recommended
+# tensorboard>=2.14.0  # For training visualization
+# wandb>=0.15.0        # For experiment tracking
+
+# Development dependencies (optional)
+# pytest>=7.4.0
+# black>=23.0.0
+# flake8>=6.0.0

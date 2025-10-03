@@ -1,0 +1,227 @@
+# PGN Data Format Configuration
+# This file configures how PGN files are parsed and what data is used for training
+
+# Tag Mapping Configuration
+# Maps standard field names to actual tag names in your PGN files
+tag_mapping:
+  # White player's ELO rating
+  # Common variations: 'WhiteElo', 'White_Elo', 'WhiteELO', 'Elo_White'
+  white_elo: 'WhiteElo'
+
+  # Black player's ELO rating
+  # Common variations: 'BlackElo', 'Black_Elo', 'BlackELO', 'Elo_Black'
+  black_elo: 'BlackElo'
+
+  # Game result
+  # Usually: 'Result'
+  result: 'Result'
+
+  # Time control
+  # Common variations: 'TimeControl', 'Time_Control', 'TC'
+  time_control: 'TimeControl'
+
+  # Event name
+  event: 'Event'
+
+  # Game date
+  date: 'Date'
+
+  # White player name
+  white: 'White'
+
+  # Black player name
+  black: 'Black'
+
+  # ECO code (opening classification)
+  eco: 'ECO'
+
+  # Opening name
+  opening: 'Opening'
+
+# Auto-detection Settings
+auto_detection:
+  # Automatically detect tag names from PGN file
+  # If true, will scan first few games to find actual tag names
+  enabled: true
+
+  # Number of games to scan for detection
+  scan_games: 10
+
+  # Sample size (bytes) to read for detection
+  sample_size_bytes: 50000
+
+# Data Quality Filters
+quality_filters:
+  # Require both players to have ELO ratings
+  require_elo: true
+
+  # Require finished games (Result tag must be present and valid)
+  require_result: true
+
+  # Minimum ELO difference (null = no filter)
+  # Useful to avoid training on mismatched games
+  min_elo_difference: null
+  max_elo_difference: null
+
+  # Average ELO requirement
+  min_average_elo: null  # Example: 2200 for strong games only
+  max_average_elo: null
+
+  # Require specific tags to be present
+  required_tags:
+    - 'WhiteElo'
+    - 'BlackElo'
+    - 'Result'
+
+  # Exclude games with specific conditions
+  exclude_conditions:
+    # Exclude games with time forfeit
+    exclude_time_forfeit: false
+
+    # Exclude games with resignation before move N
+    exclude_early_resignation: null  # Example: 10
+
+    # Exclude draws by agreement before move N
+    exclude_early_draw: null  # Example: 15
+
+# Time Control Categories
+# Used for filtering by time control type
+time_control_categories:
+  bullet:
+    # Bullet: < 3 minutes
+    max_time: 180  # seconds
+
+  blitz:
+    # Blitz: 3-10 minutes
+    min_time: 180
+    max_time: 600
+
+  rapid:
+    # Rapid: 10-60 minutes
+    min_time: 600
+    max_time: 3600
+
+  classical:
+    # Classical: > 60 minutes
+    min_time: 3600
+
+# Move Filtering
+move_filters:
+  # Skip games that are too short (likely not serious games)
+  min_moves: 10
+
+  # Skip games that are too long (may be outliers)
+  max_moves: 300
+
+  # Skip positions after move N (for opening-focused training)
+  max_move_for_training: null  # Example: 40 for opening/middlegame only
+
+  # Skip positions before move N (for endgame-focused training)
+  min_move_for_training: null  # Example: 30 for endgame only
+
+# Result Mapping
+result_values:
+  # How to interpret game results for value target
+  white_win: 1.0     # '1-0'
+  black_win: -1.0    # '0-1'
+  draw: 0.0          # '1/2-1/2'
+
+  # Perspective adjustment
+  # If true, value is from perspective of side to move
+  # If false, value is always from white's perspective
+  perspective_relative: true
+
+# Special Position Handling
+position_handling:
+  # Include starting position (for opening training)
+  include_start_position: false
+
+  # Include final position (before game end)
+  include_final_position: true
+
+  # Skip positions with forced moves (only one legal move)
+  skip_forced_moves: false
+
+  # Skip positions in check (may be too tactical)
+  skip_check_positions: false
+
+# Data Augmentation
+augmentation:
+  # Horizontal flip (mirror position along vertical axis)
+  # Useful for data augmentation
+  horizontal_flip:
+    enabled: false
+    probability: 0.5
+
+  # Color swap (swap white/black)
+  # Doubles dataset size
+  color_swap:
+    enabled: false
+    probability: 0.5
+
+# Encoding Settings
+encoding:
+  # Character encoding for PGN files
+  file_encoding: 'utf-8'
+
+  # Handle encoding errors
+  encoding_errors: 'ignore'  # Options: 'strict', 'ignore', 'replace'
+
+  # Strip comments from PGN
+  strip_comments: true
+
+  # Strip variations from PGN
+  strip_variations: true
+
+# Performance Settings
+performance:
+  # Chunk size for reading large PGN files
+  chunk_size: 1000  # Number of games to process at once
+
+  # Use parallel processing
+  parallel_processing:
+    enabled: false
+    num_workers: 4
+
+  # Cache parsed games (memory vs speed tradeoff)
+  cache_parsed_games: false
+
+  # Maximum cache size (in games)
+  max_cache_size: 10000
+
+# Validation Settings
+validation:
+  # Percentage of data to use for validation
+  validation_split: 0.1
+
+  # Validation split method: 'random', 'sequential', 'by_file'
+  split_method: 'random'
+
+  # Random seed for validation split
+  split_seed: 42
+
+  # Separate validation files (if using 'by_file' method)
+  validation_files: []
+
+# Logging and Debug
+debug:
+  # Log sample games for verification
+  log_sample_games: true
+
+  # Number of sample games to log
+  num_sample_games: 3
+
+  # Verbose logging for data loading
+  verbose: false
+
+  # Log statistics about dataset
+  log_statistics: true
+
+  # Statistics to compute
+  statistics:
+    - 'total_games'
+    - 'total_positions'
+    - 'elo_distribution'
+    - 'result_distribution'
+    - 'move_distribution'
+    - 'time_control_distribution'
