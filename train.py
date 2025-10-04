@@ -260,23 +260,22 @@ class ChessTrainer:
         if self.dry_run:
             dataloader_config = {'num_workers': 0, 'pin_memory': False}
 
-        # Calculate batch size
         batch_size = data_config.get('batch_size', 32)
         if self.gpu_optimizer is not None and not self.dry_run:
-            # Use GPU optimizer to calculate optimal batch size
-            model_params = self.model.count_parameters() if self.model else 50_000_000
-            sequence_length = 68  # Board tokens
-            optimal_batch = self.gpu_optimizer.get_optimal_batch_size(
-            model_params, sequence_length
-            )
+            try:
+                model_params = self.model.count_parameters() if self.model else 50_000_000
+                sequence_length = 68
+                optimal_batch = self.gpu_optimizer.get_optimal_batch_size(model_params, sequence_length)
 
-            if optimal_batch is not None and isinstance(optimal_batch, int):
-                batch_size = min(batch_size, optimal_batch)
-                logger.info(f"GPU-optimized batch size: {batch_size}")
-            else:
-                logger.warning("Optimal batch size could not be determined, using default batch size.")
-        elif self.dry_run:
-            batch_size = 2  # Minimal for dry run
+                if isinstance(optimal_batch, int) and optimal_batch > 0:
+                    batch_size = min(batch_size, optimal_batch)
+                    logger.info(f"GPU-optimized batch size: {batch_size}")
+                else:
+                    logger.warning("Optimal batch size not valid, using default batch size.")
+            except Exception as e:
+                logger.warning(f"Error determining optimal batch size: {e} -- using default batch size.")
+                elif self.dry_run:
+                    batch_size = 2
 
         dataloader = DataLoader(
             dataset,
