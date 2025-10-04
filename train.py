@@ -52,9 +52,10 @@ logger = logging.getLogger(__name__)
 class ChessTrainer:
     """Advanced Chess Model Trainer"""
 
-    def __init__(self, config: Dict[str, Any], dry_run: bool = False):
+    def __init__(self, config: Dict[str, Any], dry_run: bool = False, resume_checkpoint: Optional[str] = None):
         self.config = config
         self.dry_run = dry_run
+        self.resume_checkpoint = resume_checkpoint
 
         # Set random seed for reproducibility
         self.set_seed()
@@ -371,10 +372,40 @@ class ChessTrainer:
             'policy_accuracy': accuracy.item(),
         }
 
+    def resume_from_checkpoint(self, checkpoint_path: str) -> Dict[str, Any]:
+        """
+        Resume training from a checkpoint
+        
+        Returns:
+            Dictionary containing resumed state information
+        """
+        logger.info("=" * 80)
+        logger.info(f"Resuming from checkpoint: {checkpoint_path}")
+        logger.info("=" * 80)
+        
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        
+        # Extract checkpoint information
+        resume_step = checkpoint.get('step', 0)
+        resume_metrics = checkpoint.get('metrics', {})
+        
+        logger.info(f"Checkpoint was saved at step: {resume_step}")
+        logger.info(f"Checkpoint metrics: {resume_metrics}")
+        
+        # Return checkpoint data for later use
+        return {
+            'checkpoint': checkpoint,
+            'step': resume_step,
+            'metrics': resume_metrics
+        }
+
     def train(self):
         """Main training loop"""
         logger.info("=" * 80)
-        logger.info("Starting Training")
+        if self.resume_checkpoint:
+            logger.info("Resuming Training from Checkpoint")
+        else:
+            logger.info("Starting Training")
         logger.info("=" * 80)
 
         # Enable anomaly detection if requested
@@ -412,6 +443,25 @@ class ChessTrainer:
             min_lr=training_config.get('min_lr', 1e-6)
         )
 
+        # Handle checkpoint resuming
+        resume_data = None
+        if self.resume_checkpoint:
+            resume_data = self.resume_from_checkpoint(self.resume_checkpoint)
+            
+            # Load model state
+            self.model.load_state_dict(resume_data['checkpoint']['model_state_dict'])
+            logger.info("Model state loaded from checkpoint")
+            
+            # Load optimizer state
+            if 'optimizer_state_dict' in resume_data['checkpoint']:
+                self.optimizer.load_state_dict(resume_data['checkpoint']['optimizer_state_dict'])
+                logger.info("Optimizer state loaded from checkpoint")
+            
+            # Load scheduler state
+            if 'scheduler_state_dict' in resume_data['checkpoint'] and resume_data['checkpoint']['scheduler_state_dict']:
+                self.scheduler.__dict__.update(resume_data['checkpoint']['scheduler_state_dict'])
+                logger.info("Scheduler state loaded from checkpoint")
+
         # Create memory manager
         if self.gpu_optimizer is not None:
             memory_config = self.gpu_optimizer.get_memory_config()
@@ -445,6 +495,12 @@ class ChessTrainer:
 
         # Metrics tracker
         self.metrics_tracker = MetricsTracker(log_dir='logs')
+        
+        # Restore metrics if resuming
+        if resume_data and 'metrics' in resume_data['checkpoint']:
+            # Update step count to resume point
+            self.metrics_tracker.step_count = step
+            logger.info(f"Metrics tracker initialized at step {step}")
 
         # Checkpoint manager
         self.checkpoint_manager = CheckpointManager(
@@ -456,12 +512,22 @@ class ChessTrainer:
         ema_model = None
         if not self.dry_run and training_config.get('use_ema', True):
             ema_model = EMAModel(self.model, decay=0.999)
+            
+            # Restore EMA state if resuming
+            if resume_data and 'ema_shadow' in resume_data['checkpoint']:
+                ema_model.shadow = resume_data['checkpoint']['ema_shadow']
+                logger.info("EMA state loaded from checkpoint")
+
+        # Initialize step counter
+        step = 0
+        if resume_data:
+            step = resume_data['step']
+            logger.info(f"Resuming from step: {step}")
 
         # Training loop
-        logger.info(f"Starting training for {total_steps} steps...")
+        logger.info(f"Starting training for {total_steps} steps (current: {step})...")
         self.memory_manager.log_memory_stats("Initial ")
 
-        step = 0
         epoch = 0
 
         try:
@@ -553,6 +619,12 @@ def main():
         action='store_true',
         help='Run in dry-run mode (minimal execution for validation)'
     )
+    parser.add_argument(
+        '--resume',
+        type=str,
+        default=None,
+        help='Path to checkpoint file to resume training from'
+    )
 
     args = parser.parse_args()
 
@@ -572,8 +644,16 @@ def main():
         logger.info("DRY RUN MODE - Quick validation only")
         logger.info("=" * 80)
 
+    # Validate resume checkpoint if provided
+    if args.resume:
+        resume_path = Path(args.resume)
+        if not resume_path.exists():
+            logger.error(f"Checkpoint file not found: {resume_path}")
+            sys.exit(1)
+        logger.info(f"Will resume from checkpoint: {resume_path}")
+
     # Create trainer
-    trainer = ChessTrainer(config, dry_run=args.dry_run)
+    trainer = ChessTrainer(config, dry_run=args.dry_run, resume_checkpoint=args.resume)
 
     # Start training
     trainer.train()
