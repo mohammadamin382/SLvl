@@ -184,7 +184,10 @@ class ChessTrainer:
         gpu_opt_config = {}
         if self.gpu_optimizer is not None:
             gpu_opt_config = self.gpu_optimizer.get_optimizer_config()
-        gpu_opt_config.pop('foreach', None)
+        # Patch for PyTorch constraint: fused and foreach cannot be True together
+        if gpu_opt_config.get("fused", False) and gpu_opt_config.get("foreach", False):
+            logger.warning("Both `fused` and `foreach` were True - disabling `foreach` to avoid crash.")
+            gpu_opt_config["foreach"] = False
         optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=lr,
