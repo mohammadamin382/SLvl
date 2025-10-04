@@ -174,9 +174,10 @@ class CheckpointManager:
         scheduler: Any,
         step: int,
         metrics: Dict[str, float],
-        ema_model: Optional[EMAModel] = None
+        ema_model: Optional[EMAModel] = None,
+        extras: Optional[Dict[str, Any]] = None
     ):
-        """Save a checkpoint"""
+        """Save a checkpoint with complete training state"""
         checkpoint_path = self.checkpoint_dir / f'checkpoint_step_{step}.pt'
 
         checkpoint = {
@@ -185,23 +186,37 @@ class CheckpointManager:
             'scheduler_state_dict': scheduler.__dict__ if scheduler else None,
             'step': step,
             'metrics': metrics,
+            'save_time': time.time(),
         }
 
+        # Add EMA state if available
         if ema_model is not None:
             checkpoint['ema_shadow'] = ema_model.shadow
 
-        torch.save(checkpoint, checkpoint_path)
-        logger.info(f"Checkpoint saved: {checkpoint_path}")
+        # Add any extra state information
+        if extras is not None:
+            checkpoint.update(extras)
+
+        # Save checkpoint with error handling
+        try:
+            torch.save(checkpoint, checkpoint_path)
+            logger.info(f"✓ Checkpoint saved: {checkpoint_path}")
+        except Exception as e:
+            logger.error(f"Failed to save checkpoint: {e}")
+            return
 
         # Track checkpoints
         self.checkpoints.append((step, checkpoint_path))
 
-        # Remove old checkpoints
+        # Remove old checkpoints (keep best + recent)
         if len(self.checkpoints) > self.keep_last_n:
             old_step, old_path = self.checkpoints.pop(0)
             if old_path.exists():
-                old_path.unlink()
-                logger.info(f"Removed old checkpoint: {old_path}")
+                try:
+                    old_path.unlink()
+                    logger.info(f"Removed old checkpoint: {old_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to remove old checkpoint: {e}")
 
     def load_checkpoint(
         self,
@@ -234,6 +249,13 @@ class CheckpointManager:
         logger.info(f"Checkpoint loaded from step {step}")
 
         return step
+
+    def get_latest_checkpoint(self) -> Optional[str]:
+        """Get path to the latest checkpoint"""
+        checkpoints = sorted(self.checkpoint_dir.glob('checkpoint_step_*.pt'))
+        if not checkpoints:
+            return None
+        return str(checkpoints[-1])
 
 
 class GradientClipper:
