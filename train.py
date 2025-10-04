@@ -278,8 +278,8 @@ class ChessTrainer:
                     logger.warning("Optimal batch size not valid, using default batch size.")
             except Exception as e:
                 logger.warning(f"Error determining optimal batch size: {e} -- using default batch size.")
-                elif self.dry_run:
-                    batch_size = 2
+        elif self.dry_run:
+            batch_size = 2
 
         dataloader = DataLoader(
             dataset,
