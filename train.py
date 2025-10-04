@@ -269,7 +269,8 @@ class ChessTrainer:
             optimal_batch = self.gpu_optimizer.get_optimal_batch_size(
                 model_params, sequence_length
             )
-            batch_size = min(batch_size, optimal_batch)
+            if optimal_batch is not None:
+                batch_size = min(batch_size, optimal_batch)
             logger.info(f"GPU-optimized batch size: {batch_size}")
         elif self.dry_run:
             batch_size = 2  # Minimal for dry run
