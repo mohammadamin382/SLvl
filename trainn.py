@@ -52,10 +52,14 @@ logger = logging.getLogger(__name__)
 class ChessTrainer:
     """Advanced Chess Model Trainer"""
 
-    def __init__(self, config: Dict[str, Any], dry_run: bool = False, resume_checkpoint: Optional[str] = None):
+    def __init__(self, config: Dict[str, Any], dry_run: bool = False, resume_checkpoint: Optional[str] = None, 
+                 cli_new_lr: Optional[float] = None, cli_new_batch: Optional[int] = None, cli_new_variable: bool = False):
         self.config = config
         self.dry_run = dry_run
         self.resume_checkpoint = resume_checkpoint
+        self.cli_new_lr = cli_new_lr
+        self.cli_new_batch = cli_new_batch
+        self.cli_new_variable = cli_new_variable
 
         # Set random seed for reproducibility
         self.set_seed()
@@ -407,12 +411,72 @@ class ChessTrainer:
         if missing_keys:
             logger.warning(f"Checkpoint missing keys: {missing_keys}")
         
+        # Determine new_lr and new_batch_size based on CLI arguments
+        new_lr = None
+        new_batch_size = None
+        
+        # Priority 1: Use CLI arguments if provided
+        if self.cli_new_lr is not None:
+            new_lr = self.cli_new_lr
+            logger.info(f"✓ Using learning rate from CLI: {new_lr}")
+        
+        if self.cli_new_batch is not None:
+            new_batch_size = self.cli_new_batch
+            logger.info(f"✓ Using batch size from CLI: {new_batch_size}")
+        
+        # Priority 2: If --new-variable is set and CLI values not provided, prompt user
+        if self.cli_new_variable:
+            # Ask for new learning rate (only if not provided via CLI)
+            if self.cli_new_lr is None:
+                logger.info("=" * 80)
+                current_lr = self.config['optimizer'].get('learning_rate', 3e-4)
+                logger.info(f"Current learning rate in config: {current_lr}")
+                
+                try:
+                    lr_input = input("Do you want to use a new learning rate for resuming? (Enter new LR or press Enter to keep current): ").strip()
+                    if lr_input:
+                        new_lr = float(lr_input)
+                        logger.info(f"✓ New learning rate set to: {new_lr}")
+                    else:
+                        logger.info(f"✓ Keeping current learning rate: {current_lr}")
+                except ValueError:
+                    logger.warning(f"Invalid learning rate input. Keeping current learning rate: {current_lr}")
+                except EOFError:
+                    logger.info(f"No input provided. Keeping current learning rate: {current_lr}")
+            
+            # Ask for new batch size (only if not provided via CLI)
+            if self.cli_new_batch is None:
+                logger.info("=" * 80)
+                current_batch_size = self.config['data'].get('batch_size', 32)
+                logger.info(f"Current batch size in config: {current_batch_size}")
+                
+                try:
+                    batch_input = input("Do you want to use a new batch size for resuming? (Enter new batch size or press Enter to keep current): ").strip()
+                    if batch_input:
+                        new_batch_size = int(batch_input)
+                        logger.info(f"✓ New batch size set to: {new_batch_size}")
+                    else:
+                        logger.info(f"✓ Keeping current batch size: {current_batch_size}")
+                except ValueError:
+                    logger.warning(f"Invalid batch size input. Keeping current batch size: {current_batch_size}")
+                except EOFError:
+                    logger.info(f"No input provided. Keeping current batch size: {current_batch_size}")
+        else:
+            # If --new-variable is False and no CLI values, use checkpoint values
+            if self.cli_new_lr is None and self.cli_new_batch is None:
+                logger.info("=" * 80)
+                logger.info("✓ Using learning rate and batch size from checkpoint/config (--new-variable not set)")
+        
+        logger.info("=" * 80)
+        
         # Return checkpoint data for later use
         return {
             'checkpoint': checkpoint,
             'step': resume_step,
             'epoch': resume_epoch,
-            'metrics': resume_metrics
+            'metrics': resume_metrics,
+            'new_lr': new_lr,
+            'new_batch_size': new_batch_size
         }
 
     def train(self):
@@ -437,6 +501,34 @@ class ChessTrainer:
         logger.info("Creating optimizer...")
         self.optimizer = self.create_optimizer(self.model)
 
+        # Handle checkpoint resuming - part 1: load checkpoint data
+        resume_data = None
+        override_lr = None
+        override_batch_size = None
+        
+        if self.resume_checkpoint:
+            try:
+                resume_data = self.resume_from_checkpoint(self.resume_checkpoint)
+                override_lr = resume_data.get('new_lr')
+                override_batch_size = resume_data.get('new_batch_size')
+            except Exception as e:
+                logger.error(f"Failed to resume from checkpoint: {e}")
+                logger.info("Starting training from scratch...")
+                resume_data = None
+
+        # Apply new learning rate if provided
+        if override_lr is not None:
+            logger.info(f"Applying new learning rate: {override_lr}")
+            for param_group in self.optimizer.param_groups:
+                param_group['lr'] = override_lr
+            # Update config for scheduler
+            self.config['optimizer']['learning_rate'] = override_lr
+
+        # Apply new batch size if provided (store for dataloader creation)
+        if override_batch_size is not None:
+            logger.info(f"Applying new batch size: {override_batch_size}")
+            self.config['data']['batch_size'] = override_batch_size
+
         # Create dataloader
         logger.info("Creating dataloader...")
         dataloader = self.create_dataloader()
@@ -459,27 +551,26 @@ class ChessTrainer:
             min_lr=training_config.get('min_lr', 1e-6)
         )
 
-        # Handle checkpoint resuming
-        resume_data = None
+        # Load checkpoint state if resuming
         start_epoch = 0
-        if self.resume_checkpoint:
+        if resume_data:
             try:
-                resume_data = self.resume_from_checkpoint(self.resume_checkpoint)
-                
                 # Load model state
                 self.model.load_state_dict(resume_data['checkpoint']['model_state_dict'])
                 logger.info("✓ Model state loaded from checkpoint")
                 
-                # Load optimizer state
-                if 'optimizer_state_dict' in resume_data['checkpoint']:
+                # Load optimizer state (only if not using new learning rate)
+                if override_lr is None and 'optimizer_state_dict' in resume_data['checkpoint']:
                     try:
                         self.optimizer.load_state_dict(resume_data['checkpoint']['optimizer_state_dict'])
                         logger.info("✓ Optimizer state loaded from checkpoint")
                     except Exception as e:
                         logger.warning(f"Failed to load optimizer state: {e}. Starting with fresh optimizer.")
+                elif override_lr is not None:
+                    logger.info("✓ Using fresh optimizer state with new learning rate")
                 
-                # Load scheduler state properly
-                if 'scheduler_state_dict' in resume_data['checkpoint'] and resume_data['checkpoint']['scheduler_state_dict']:
+                # Load scheduler state properly (only if not using new learning rate)
+                if override_lr is None and 'scheduler_state_dict' in resume_data['checkpoint'] and resume_data['checkpoint']['scheduler_state_dict']:
                     try:
                         scheduler_state = resume_data['checkpoint']['scheduler_state_dict']
                         if isinstance(scheduler_state, dict):
@@ -489,14 +580,15 @@ class ChessTrainer:
                         logger.info("✓ Scheduler state loaded from checkpoint")
                     except Exception as e:
                         logger.warning(f"Failed to load scheduler state: {e}. Scheduler will continue from current state.")
+                elif override_lr is not None:
+                    logger.info("✓ Using fresh scheduler state with new learning rate")
                 
                 # Extract epoch to resume from
                 start_epoch = resume_data.get('epoch', 0)
                 
             except Exception as e:
-                logger.error(f"Failed to resume from checkpoint: {e}")
-                logger.info("Starting training from scratch...")
-                resume_data = None
+                logger.error(f"Failed to apply checkpoint state: {e}")
+                logger.info("Continuing with fresh state...")
                 start_epoch = 0
 
         # Create memory manager
@@ -699,6 +791,23 @@ def main():
         default=None,
         help='Path to checkpoint file to resume training from'
     )
+    parser.add_argument(
+        '--new-lr',
+        type=float,
+        default=None,
+        help='New learning rate to use when resuming (optional)'
+    )
+    parser.add_argument(
+        '--new-batch',
+        type=int,
+        default=None,
+        help='New batch size to use when resuming (optional)'
+    )
+    parser.add_argument(
+        '--new-variable',
+        action='store_true',
+        help='Prompt for new learning rate and batch size when resuming (if not set, uses checkpoint values)'
+    )
 
     args = parser.parse_args()
 
@@ -727,7 +836,14 @@ def main():
         logger.info(f"Will resume from checkpoint: {resume_path}")
 
     # Create trainer
-    trainer = ChessTrainer(config, dry_run=args.dry_run, resume_checkpoint=args.resume)
+    trainer = ChessTrainer(
+        config, 
+        dry_run=args.dry_run, 
+        resume_checkpoint=args.resume,
+        cli_new_lr=args.new_lr,
+        cli_new_batch=args.new_batch,
+        cli_new_variable=args.new_variable
+    )
 
     # Start training
     trainer.train()
