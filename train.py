@@ -35,7 +35,8 @@ from src.utils import (
 )
 from gpus import get_gpu_optimizer, detect_gpu
 
-
+#batch_size force
+force_batch = True
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -268,8 +269,11 @@ class ChessTrainer:
                 optimal_batch = self.gpu_optimizer.get_optimal_batch_size(model_params, sequence_length)
 
                 if isinstance(optimal_batch, int) and optimal_batch > 0:
-                    batch_size = min(batch_size, optimal_batch)
-                    logger.info(f"GPU-optimized batch size: {batch_size}")
+                    if force_batch:
+                        batch_size = batch_size
+                    else:
+                        batch_size = min(batch_size, optimal_batch)
+                        logger.info(f"GPU-optimized batch size: {batch_size}")
                 else:
                     logger.warning("Optimal batch size not valid, using default batch size.")
             except Exception as e:
