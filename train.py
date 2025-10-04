@@ -267,11 +267,14 @@ class ChessTrainer:
             model_params = self.model.count_parameters() if self.model else 50_000_000
             sequence_length = 68  # Board tokens
             optimal_batch = self.gpu_optimizer.get_optimal_batch_size(
-                model_params, sequence_length
+            model_params, sequence_length
             )
+
             if optimal_batch is not None:
                 batch_size = min(batch_size, optimal_batch)
-            logger.info(f"GPU-optimized batch size: {batch_size}")
+                logger.info(f"GPU-optimized batch size: {batch_size}")
+            else:
+                logger.warning("Optimal batch size could not be determined, using default.")
         elif self.dry_run:
             batch_size = 2  # Minimal for dry run
 
