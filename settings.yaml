@@ -26,7 +26,7 @@ training:
 
 data:
   pgn_directory: "data/pgn"
-  batch_size: 256          # 🟢 Auto تنظیم می‌شه طبق VRAM H200
+  batch_size: 2048       # 🟢 Auto تنظیم می‌شه طبق VRAM H200
   max_games: null
   min_elo: 2000
   max_elo: null
