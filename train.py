@@ -184,7 +184,7 @@ class ChessTrainer:
         gpu_opt_config = {}
         if self.gpu_optimizer is not None:
             gpu_opt_config = self.gpu_optimizer.get_optimizer_config()
-
+        gpu_opt_config.pop('foreach', None)
         optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=lr,
