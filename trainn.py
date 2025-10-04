@@ -387,7 +387,7 @@ class ChessTrainer:
             raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_path}")
         
         try:
-            checkpoint = torch.load(checkpoint_path, map_location=self.device)
+            checkpoint = torch.load(checkpoint_path, map_location=self.device,weights_only=False)
         except Exception as e:
             logger.error(f"Failed to load checkpoint: {e}")
             raise
