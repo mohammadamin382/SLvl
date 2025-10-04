@@ -39,7 +39,7 @@ gpu:
   force_gpu_type: null               # 🟢 خودش H200 رو می‌شناسه، لازم نیست override بدی
   max_split_size_mb: null            # 🟢 خودش تنظیم می‌کنه
   garbage_collection_threshold: null # 🟢 خودش تنظیم می‌کنه
-  enable_compile: true
+  enable_compile: false
   compile_mode: "max-autotune"
 
 paths:
